@@ -50,6 +50,91 @@ All HPC code lives under `HPC/`. Each problem has its **own subdirectory**, **in
 | `HPC/3_reduce/` | `reduce.py` | `reduce.cpp` | Parallel min, max, sum, average reductions |
 | `HPC/4_par_qsort/` | `par_qsort.py` | `par_qsort.cpp` | Parallel quicksort-style sorting + timings |
 
+### HPC stdin inputs — simple guide
+
+All four programs read from the **keyboard (stdin)**. After you run the executable, type each answer **when the program asks**, usually **one number per line**. Edges use **two integers on one line** (`u` then `v`). Vertices are always **`0` … n−1**.
+
+**Python vs C++ (quick differences)**
+
+- **`bfs_dfs`:** Python asks for **parallel workers** at the end; **C++ does not** (OpenMP runs parallel sections inside the program).
+- **`par_sort`, `reduce`, `par_qsort`:** Python lets you press **Enter** for the seed to get random data each run; **C++ always needs a numeric seed**.
+
+Below is **one full mini-example per program** (same idea you would type by hand; using **`printf`** or PowerShell **here-strings** is optional).
+
+---
+
+#### 1) `bfs_dfs` — build a graph, then BFS and DFS from a start vertex
+
+You give: how many vertices, how many edges, each edge as `u v`, where to start, and (**Python only**) how many parallel workers.
+
+**Python** — triangle on vertices 0–1–2, start at `0`, `2` workers (7 lines):
+
+```bash
+printf "3\n3\n0 1\n1 2\n2 0\n0\n2\n" | python3 bfs_dfs.py
+```
+
+**C++** — same graph and start, no workers line (6 lines):
+
+```bash
+printf "3\n3\n0 1\n1 2\n2 0\n0\n" | ./bfs_dfs
+```
+
+---
+
+#### 2) `par_sort` — random array size, threads/workers, seed
+
+You give: how many random floats to sort, how many threads (Python = workers; C++ = OpenMP threads), then a seed (Python may leave blank).
+
+**Python** — sort `500` numbers, `2` workers, seed `42`:
+
+```bash
+printf "500\n2\n42\n" | python3 par_sort.py
+```
+
+**C++** — same numbers (seed required):
+
+```bash
+printf "500\n2\n42\n" | ./par_sort
+```
+
+---
+
+#### 3) `reduce` — random sample count, threads/workers, seed
+
+You give: how many random doubles, parallelism count, seed. The program prints sequential vs parallel **min, max, sum, average** and times.
+
+**Python** — `1000` samples, `2` workers, seed `99`:
+
+```bash
+printf "1000\n2\n99\n" | python3 reduce.py
+```
+
+**C++**:
+
+```bash
+printf "1000\n2\n99\n" | ./reduce
+```
+
+---
+
+#### 4) `par_qsort` — array size, sequential cutoff, threads/workers, seed
+
+You give: how many floats; **cutoff** (small sub-arrays use sequential quicksort inside); worker/thread count; seed. **C++:** cutoff `0` is treated as `1`.
+
+**Python** — `800` values, cutoff `400`, `2` workers, seed `7`:
+
+```bash
+printf "800\n400\n2\n7\n" | python3 par_qsort.py
+```
+
+**C++**:
+
+```bash
+printf "800\n400\n2\n7\n" | ./par_qsort
+```
+
+---
+
 ### How to run HPC Python samples
 
 From the problem directory (so relative paths and current working directory match any future extensions):
@@ -62,13 +147,7 @@ source .venv/bin/activate
 python3 bfs_dfs.py
 ```
 
-Repeat for other folders, changing the directory and script name (`par_sort.py`, `reduce.py`, `par_qsort.py`). **Pipe input** for non-interactive smoke tests, for example:
-
-```bash
-printf "1\n5\n0 1\n1 2\n" | python3 bfs_dfs.py
-```
-
-(Adjust numbers to match each program’s menu.)
+Repeat for other folders, changing the directory and script name (`par_sort.py`, `reduce.py`, `par_qsort.py`). Use the **full stdin examples** in **HPC stdin inputs** above (or paste the same numbers interactively).
 
 ### How to compile and run HPC C++ (OpenMP)
 
@@ -87,7 +166,7 @@ g++ -O2 -fopenmp -Wall -std=c++17 -o bfs_dfs bfs_dfs.cpp
 ./bfs_dfs
 ```
 
-Use the same pattern: replace folder name and source/output binary names (`par_sort`, `reduce`, `par_qsort`).
+Use the same pattern: replace folder name and source/output binary names (`par_sort`, `reduce`, `par_qsort`). See **HPC stdin inputs** for copy-paste **`printf`** lines (C++ `bfs_dfs` omits the workers line).
 
 **Python vs C++ parallelism**
 
