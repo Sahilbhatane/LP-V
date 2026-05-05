@@ -70,7 +70,11 @@ You give: how many vertices, how many edges, each edge as `u v`, where to start,
 **Python** — triangle on vertices 0–1–2, start at `0`, `2` workers (7 lines):
 
 ```bash
-printf "3\n3\n0 1\n1 2\n2 0\n0\n2\n" | python3 bfs_dfs.py
+printf "3
+3
+0 1
+1 2
+2 0\n0\n2\n" | python3 bfs_dfs.py
 ```
 
 **C++** — same graph and start, no workers line (6 lines):
@@ -220,7 +224,7 @@ In **VS Code**, open the `.ipynb` file, choose the interpreter from your virtual
 ### Data files missing
 
 - **Boston housing:** Place **`5_boston_housing.csv`** in `DL/5.Boston housing price/` and start Jupyter or VS Code with that folder as the working directory (or open the notebook from that folder).
-- **IMDB:** Place **`IMDB_Dataset.csv`** next to **`6_IMDB.ipynb`**.
+- **IMDB:** The large dataset **`IMDB_Dataset.csv`** is stored with **Git LFS** in this repository. Install [Git LFS](https://git-lfs.com/) (`git lfs install`) and clone or pull as usual so the real CSV downloads (not only the tiny pointer file). Alternatively place your own copy next to **`6_IMDB.ipynb`**.
 - **Fashion-MNIST:** First full run uses Keras to download and cache data, then writes **`fashion_mnist_local.npz`** next to the notebook for the reload path. To work fully offline, copy that `.npz` file from a machine that already ran the download step.
 
 ### Python parallel sorts / quicksort
