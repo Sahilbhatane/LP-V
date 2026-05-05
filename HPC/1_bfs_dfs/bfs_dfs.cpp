@@ -1,283 +1,152 @@
 /**
- * Parallel BFS and DFS on an undirected graph using OpenMP.
+ * Parallel BFS and DFS (OpenMP) — compact SPPU-style lab version.
  *
- * Build on Ubuntu:
- *   g++ -O2 -fopenmp -Wall -std=c++17 -o bfs_dfs bfs_dfs.cpp
- *
- * Run:
- *   ./bfs_dfs
+ * Build: g++ -O2 -fopenmp -Wall -std=c++17 -o bfs_dfs bfs_dfs.cpp
  */
 
-#include <algorithm>
-#include <chrono>
 #include <iostream>
 #include <omp.h>
 #include <queue>
-#include <stack>
-#include <utility>
 #include <vector>
 
 using namespace std;
 
-/**
- * Read graph size and edges from stdin.
- */
-static void read_graph(int &n, int &m, vector<pair<int, int>> &edges) {
-  cout << "Number of vertices: ";
-  cin >> n;
-  cout << "Number of undirected edges: ";
-  cin >> m;
-  edges.resize(m);
-  for (int i = 0; i < m; ++i) {
-    int u, v;
-    cout << "Edge " << (i + 1) << " (u v): ";
-    cin >> u >> v;
-    edges[i] = {u, v};
-  }
-}
+class Graph {
+  int V;
+  vector<vector<int>> adj;
 
-/**
- * Build adjacency list for an undirected simple graph.
- */
-static vector<vector<int>> build_adjacency(int n,
-                                           const vector<pair<int, int>> &edges) {
-  vector<vector<int>> adj(n);
-  for (const auto &e : edges) {
-    int u = e.first;
-    int v = e.second;
-    if (u == v)
-      continue;
+public:
+  explicit Graph(int vertices) : V(vertices) { adj.resize(V); }
+
+  void addEdge(int u, int v) {
     adj[u].push_back(v);
     adj[v].push_back(u);
   }
-  for (int i = 0; i < n; ++i) {
-    sort(adj[i].begin(), adj[i].end());
-    adj[i].erase(unique(adj[i].begin(), adj[i].end()), adj[i].end());
-  }
-  return adj;
-}
 
-/**
- * Sequential BFS for baseline timing and reference order.
- */
-static vector<int> bfs_sequential(const vector<vector<int>> &adj, int start) {
-  int n = static_cast<int>(adj.size());
-  vector<char> visited(n, 0);
-  vector<int> order;
-  queue<int> q;
-  visited[start] = 1;
-  q.push(start);
+  void parallelBFS(int start) {
+    vector<bool> visited(V, false);
+    queue<int> q;
 
-  while (!q.empty()) {
-    int u = q.front();
-    q.pop();
-    order.push_back(u);
-    for (int v : adj[u]) {
-      if (!visited[v]) {
-        visited[v] = 1;
-        q.push(v);
-      }
-    }
-  }
-  return order;
-}
+    visited[start] = true;
+    q.push(start);
 
-/**
- * Parallel level-synchronous BFS using OpenMP over the current frontier.
- */
-static vector<int> bfs_parallel(const vector<vector<int>> &adj, int start) {
-  int n = static_cast<int>(adj.size());
-  vector<char> visited(n, 0);
-  vector<int> order;
-  vector<int> frontier;
-  frontier.push_back(start);
-  visited[start] = 1;
+    cout << "\nParallel BFS Traversal: ";
 
-  while (!frontier.empty()) {
-    order.insert(order.end(), frontier.begin(), frontier.end());
+    while (!q.empty()) {
+      int size = static_cast<int>(q.size());
 
-    vector<int> local_candidates;
-#pragma omp parallel
-    {
-      vector<int> thread_private;
-#pragma omp for schedule(static) nowait
-      for (long long ii = 0; ii < static_cast<long long>(frontier.size()); ++ii) {
-        size_t i = static_cast<size_t>(ii);
-        int u = frontier[i];
-        for (int v : adj[u]) {
-          thread_private.push_back(v);
+#pragma omp parallel for
+      for (int i = 0; i < size; i++) {
+        int node = -1;
+
+#pragma omp critical
+        {
+          if (!q.empty()) {
+            node = q.front();
+            q.pop();
+            cout << node << " ";
+          }
+        }
+
+        if (node != -1) {
+          for (int neighbor : adj[node]) {
+            if (!visited[neighbor]) {
+#pragma omp critical
+              {
+                if (!visited[neighbor]) {
+                  visited[neighbor] = true;
+                  q.push(neighbor);
+                }
+              }
+            }
+          }
         }
       }
+    }
+    cout << endl;
+  }
+
+  void parallelDFSUtil(int node, vector<bool> &visited) {
+    bool alreadyVisited;
+
 #pragma omp critical
-      {
-        local_candidates.insert(local_candidates.end(), thread_private.begin(),
-                                thread_private.end());
+    {
+      alreadyVisited = visited[node];
+      if (!visited[node]) {
+        visited[node] = true;
+        cout << node << " ";
       }
     }
 
-    vector<int> next_frontier;
-    for (int v : local_candidates) {
-      if (!visited[v]) {
-        visited[v] = 1;
-        next_frontier.push_back(v);
-      }
-    }
-    sort(next_frontier.begin(), next_frontier.end());
-    next_frontier.erase(unique(next_frontier.begin(), next_frontier.end()),
-                        next_frontier.end());
-    frontier.swap(next_frontier);
-  }
-  return order;
-}
+    if (alreadyVisited)
+      return;
 
-/**
- * Sequential DFS (preorder with stack).
- */
-static vector<int> dfs_sequential(const vector<vector<int>> &adj, int start) {
-  int n = static_cast<int>(adj.size());
-  vector<char> visited(n, 0);
-  vector<int> order;
-  stack<int> st;
-  st.push(start);
+#pragma omp parallel for
+    for (int i = 0; i < static_cast<int>(adj[node].size()); i++) {
+      int neighbor = adj[node][i];
 
-  while (!st.empty()) {
-    int u = st.top();
-    st.pop();
-    if (visited[u])
-      continue;
-    visited[u] = 1;
-    order.push_back(u);
-    for (auto it = adj[u].rbegin(); it != adj[u].rend(); ++it) {
-      int v = *it;
-      if (!visited[v])
-        st.push(v);
-    }
-  }
-  return order;
-}
-
-/**
- * Depth-first exploration from one starting vertex using a stack.
- * Used inside parallel DFS worker branches (same pattern as the Python helper).
- */
-static vector<int> dfs_from_vertex(const vector<vector<int>> &adj,
-                                   vector<char> visited_seed, int entry) {
-  int n = static_cast<int>(adj.size());
-  vector<int> order_local;
-  stack<int> st;
-  st.push(entry);
-
-  while (!st.empty()) {
-    int u = st.top();
-    st.pop();
-    if (visited_seed[u])
-      continue;
-    visited_seed[u] = 1;
-    order_local.push_back(u);
-    for (auto it = adj[u].rbegin(); it != adj[u].rend(); ++it) {
-      int v = *it;
-      if (!visited_seed[v])
-        st.push(v);
-    }
-  }
-  return order_local;
-}
-
-/**
- * Parallel DFS variant: fix the root visit, then split sorted neighbours across threads.
- * Each thread carries a copy of the visited bitmap seeded with the root only,
- * matching the Python multiprocessing sketch for classroom experiments.
- */
-static vector<int> dfs_parallel_split(const vector<vector<int>> &adj, int start) {
-  int n = static_cast<int>(adj.size());
-  vector<int> order;
-  order.push_back(start);
-
-  vector<int> children = adj[start];
-  sort(children.begin(), children.end());
-
-  if (children.empty()) {
-    return order;
-  }
-
-  vector<vector<int>> branches(children.size());
-
-#pragma omp parallel for schedule(dynamic)
-  for (int i = 0; i < static_cast<int>(children.size()); ++i) {
-    vector<char> seed_vis(n, 0);
-    seed_vis[start] = 1;
-    branches[(size_t)i] = dfs_from_vertex(adj, seed_vis, children[(size_t)i]);
-  }
-
-  vector<char> seen(n, 0);
-  seen[start] = 1;
-  for (const auto &branch : branches) {
-    for (int node : branch) {
-      if (!seen[node]) {
-        seen[node] = 1;
-        order.push_back(node);
+      if (!visited[neighbor]) {
+#pragma omp task
+        parallelDFSUtil(neighbor, visited);
       }
     }
   }
 
-  return order;
-}
+  void parallelDFS(int start) {
+    vector<bool> visited(V, false);
+
+    cout << "\nParallel DFS Traversal: ";
+
+#pragma omp parallel
+    {
+#pragma omp single
+      { parallelDFSUtil(start, visited); }
+    }
+
+    cout << endl;
+  }
+};
 
 int main() {
-  int n, m;
-  vector<pair<int, int>> edges;
-  read_graph(n, m, edges);
+  int V, E;
+
+  cout << "Enter number of vertices: ";
+  cin >> V;
+  if (V <= 0) {
+    cerr << "Invalid vertex count.\n";
+    return 1;
+  }
+
+  Graph g(V);
+
+  cout << "Enter number of edges: ";
+  cin >> E;
+  if (E < 0) {
+    cerr << "Invalid edge count.\n";
+    return 1;
+  }
+
+  cout << "Enter edges (u v):\n";
+  for (int i = 0; i < E; i++) {
+    int u, v;
+    cin >> u >> v;
+    if (u < 0 || u >= V || v < 0 || v >= V) {
+      cerr << "Edge (" << u << "," << v << ") out of range 0.." << (V - 1) << "\n";
+      return 1;
+    }
+    g.addEdge(u, v);
+  }
 
   int start;
-  cout << "Start vertex: ";
+  cout << "Enter starting vertex: ";
   cin >> start;
-
-  if (start < 0 || start >= n) {
+  if (start < 0 || start >= V) {
     cerr << "Invalid start vertex.\n";
     return 1;
   }
 
-  vector<vector<int>> adj = build_adjacency(n, edges);
-
-  auto t0 = chrono::high_resolution_clock::now();
-  vector<int> b_seq = bfs_sequential(adj, start);
-  auto t1 = chrono::high_resolution_clock::now();
-
-  auto t2 = chrono::high_resolution_clock::now();
-  vector<int> b_par = bfs_parallel(adj, start);
-  auto t3 = chrono::high_resolution_clock::now();
-
-  cout << "\nSequential BFS order:";
-  for (int x : b_seq)
-    cout << ' ' << x;
-  cout << "\nSequential BFS time (ms): "
-       << chrono::duration<double, milli>(t1 - t0).count() << "\n";
-
-  cout << "Parallel BFS order:";
-  for (int x : b_par)
-    cout << ' ' << x;
-  cout << "\nParallel BFS time (ms): "
-       << chrono::duration<double, milli>(t3 - t2).count() << "\n";
-
-  auto t4 = chrono::high_resolution_clock::now();
-  vector<int> d_seq = dfs_sequential(adj, start);
-  auto t5 = chrono::high_resolution_clock::now();
-
-  auto t6 = chrono::high_resolution_clock::now();
-  vector<int> d_par = dfs_parallel_split(adj, start);
-  auto t7 = chrono::high_resolution_clock::now();
-
-  cout << "\nSequential DFS order:";
-  for (int x : d_seq)
-    cout << ' ' << x;
-  cout << "\nSequential DFS time (ms): "
-       << chrono::duration<double, milli>(t5 - t4).count() << "\n";
-
-  cout << "Parallel DFS order (split children):";
-  for (int x : d_par)
-    cout << ' ' << x;
-  cout << "\nParallel DFS time (ms): "
-       << chrono::duration<double, milli>(t7 - t6).count() << "\n";
+  g.parallelBFS(start);
+  g.parallelDFS(start);
 
   return 0;
 }

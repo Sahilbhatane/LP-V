@@ -1,12 +1,7 @@
 """
-Parallel bubble sort and parallel merge sort with timing comparisons.
+Parallel bubble + merge sort timings (stdlib only). Fixed SIZE (same idea as par_sort.cpp).
 
-Sequential versions are included for measuring speedups. Python cannot apply
-OpenMP pragmas directly; bubble phases use threads while merge chunks rely on
-multiprocessing so you can compare wall-clock times against sequential runs.
-
-Usage on Ubuntu:
-    python3 par_sort.py
+Run: python3 par_sort.py
 """
 
 from __future__ import annotations
@@ -17,211 +12,98 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Tuple
 
+SIZE = 256  # Python threaded odd-even has high overhead; keep small (C++ uses 10000)
 
-def sequential_bubble_sort(values: List[float]) -> List[float]:
-    """
-    Classic bubble sort with early exit flag.
 
-    Args:
-        values: Mutable sequence of comparable floats.
-
-    Returns:
-        New sorted list (input is not mutated).
-    """
-    arr = list(values)
+def bubble_seq(arr: List[int]) -> None:
     n = len(arr)
     for i in range(n):
-        swapped = False
-        for j in range(0, n - i - 1):
+        for j in range(n - i - 1):
             if arr[j] > arr[j + 1]:
                 arr[j], arr[j + 1] = arr[j + 1], arr[j]
-                swapped = True
-        if not swapped:
-            break
-    return arr
 
 
-def parallel_bubble_sort(values: List[float], workers: int) -> List[float]:
-    """
-    Odd-even (brick) sort using threads so index swaps share one array safely.
+def swap_pair(args: Tuple[List[int], int, int]) -> None:
+    a, i, j = args
+    if a[i] > a[j]:
+        a[i], a[j] = a[j], a[i]
 
-    Args:
-        values: Numbers to sort.
-        workers: Thread pool size for parallel phases.
 
-    Returns:
-        Sorted copy of values.
-    """
-    arr = list(values)
+def bubble_par(arr: List[int]) -> None:
     n = len(arr)
-    if n <= 1:
-        return arr
-
-    def swap_pair(pair: Tuple[int, int]) -> None:
-        """
-        Compare neighbours at the given indices and swap out of order elements.
-        """
-        left_index, right_index = pair
-        if arr[left_index] > arr[right_index]:
-            arr[left_index], arr[right_index] = arr[right_index], arr[left_index]
-
-    worker_cap = max(1, workers)
-    with ThreadPoolExecutor(max_workers=worker_cap) as pool:
-        for phase in range(n):
-            odd_phase = phase % 2
-            pairs: List[Tuple[int, int]] = []
-            index = odd_phase
-            while index < n - 1:
-                pairs.append((index, index + 1))
-                index += 2
-
-            if pairs:
-                list(pool.map(swap_pair, pairs))
-
-            ordered = True
-            for index in range(n - 1):
-                if arr[index] > arr[index + 1]:
-                    ordered = False
-                    break
-            if ordered:
-                break
-
-    return arr
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for _ in range(n):
+            for phase in (0, 1):
+                pairs = [(arr, k, k + 1) for k in range(phase, n - 1, 2)]
+                if pairs:
+                    list(pool.map(swap_pair, pairs))
 
 
-def sequential_merge_sort(values: List[float]) -> List[float]:
-    """
-    Standard recursive merge sort returning a new sorted list.
-
-    Args:
-        values: Sequence of floats.
-
-    Returns:
-        Sorted list.
-    """
-    if len(values) <= 1:
-        return list(values)
-
-    mid = len(values) // 2
-    left = sequential_merge_sort(values[:mid])
-    right = sequential_merge_sort(values[mid:])
-    return merge_two_sorted(left, right)
-
-
-def merge_two_sorted(left: List[float], right: List[float]) -> List[float]:
-    """
-    Merge two sorted arrays into one sorted array.
-
-    Args:
-        left: Sorted ascending.
-        right: Sorted ascending.
-
-    Returns:
-        Combined sorted list.
-    """
-    result: List[float] = []
-    i = 0
-    j = 0
+def merge_two(left: List[int], right: List[int]) -> List[int]:
+    out: List[int] = []
+    i = j = 0
     while i < len(left) and j < len(right):
         if left[i] <= right[j]:
-            result.append(left[i])
+            out.append(left[i])
             i += 1
         else:
-            result.append(right[j])
+            out.append(right[j])
             j += 1
-    while i < len(left):
-        result.append(left[i])
-        i += 1
-    while j < len(right):
-        result.append(right[j])
-        j += 1
-    return result
+    out.extend(left[i:])
+    out.extend(right[j:])
+    return out
 
 
-def _merge_sort_worker(chunk: List[float]) -> List[float]:
-    """
-    Helper executed in child processes for parallel merge sort base case.
-
-    Args:
-        chunk: Sub-array owned by this worker.
-
-    Returns:
-        Sorted chunk.
-    """
-    return sequential_merge_sort(chunk)
-
-
-def parallel_merge_sort(values: List[float], workers: int) -> List[float]:
-    """
-    Split the input across workers, merge-sort each chunk, then merge pairwise.
-
-    Args:
-        values: Numbers to sort.
-        workers: Number of parallel partitions.
-
-    Returns:
-        Sorted list.
-    """
-    n = len(values)
-    if n <= 1:
+def merge_sort_seq(values: List[int]) -> List[int]:
+    if len(values) <= 1:
         return list(values)
+    m = len(values) // 2
+    return merge_two(merge_sort_seq(values[:m]), merge_sort_seq(values[m:]))
 
-    workers = max(1, min(workers, n))
-    chunk_size = (n + workers - 1) // workers
-    chunks = [values[i : i + chunk_size] for i in range(0, n, chunk_size)]
 
+def merge_sort_chunk(chunk: List[int]) -> List[int]:
+    return merge_sort_seq(chunk)
+
+
+def merge_sort_par(values: List[int], workers: int) -> List[int]:
+    if len(values) <= 1:
+        return list(values)
+    n_workers = max(1, min(workers, len(values)))
+    chunk_sz = (len(values) + n_workers - 1) // n_workers
+    chunks = [values[i : i + chunk_sz] for i in range(0, len(values), chunk_sz)]
     with mp.Pool(processes=len(chunks)) as pool:
-        sorted_chunks = pool.map(_merge_sort_worker, chunks)
-
-    result = sorted_chunks[0]
-    for part in sorted_chunks[1:]:
-        result = merge_two_sorted(result, part)
-    return result
+        parts = pool.map(merge_sort_chunk, chunks)
+    out = parts[0]
+    for p in parts[1:]:
+        out = merge_two(out, p)
+    return out
 
 
 def main() -> None:
-    """
-    Ask for array size and worker count, then print timings for each algorithm.
-    """
-    print("Parallel sorting benchmark (bubble and merge).")
-    size = int(input("How many random floats should we sort (for example 2000)? ").strip())
-    workers = int(input("How many parallel workers should we use? ").strip())
-    workers = max(1, workers)
+    random.seed()
+    base = [random.randint(0, 99999) for _ in range(SIZE)]
 
-    seed_text = input("Random seed (integer, blank uses system default): ").strip()
-    if seed_text:
-        random.seed(int(seed_text))
-
-    data = [random.random() for _ in range(size)]
-
-    print("\nBubble sort — sequential")
+    a = base[:]
     t0 = time.perf_counter()
-    bub_seq = sequential_bubble_sort(data)
+    bubble_seq(a)
     t1 = time.perf_counter()
-    print("Seconds:", round(t1 - t0, 6))
+    print("Sequential Bubble Sort Time:", round(t1 - t0, 6), "sec")
 
-    print("\nBubble sort — parallel phases")
-    t2 = time.perf_counter()
-    bub_par = parallel_bubble_sort(data, workers)
-    t3 = time.perf_counter()
-    print("Seconds:", round(t3 - t2, 6))
+    a = base[:]
+    t0 = time.perf_counter()
+    bubble_par(a)
+    t1 = time.perf_counter()
+    print("Parallel Bubble Sort Time:", round(t1 - t0, 6), "sec")
 
-    print("\nMerge sort — sequential")
-    t4 = time.perf_counter()
-    mer_seq = sequential_merge_sort(data)
-    t5 = time.perf_counter()
-    print("Seconds:", round(t5 - t4, 6))
+    t0 = time.perf_counter()
+    _ = merge_sort_seq(base[:])
+    t1 = time.perf_counter()
+    print("Sequential Merge Sort Time:", round(t1 - t0, 6), "sec")
 
-    print("\nMerge sort — parallel chunks")
-    t6 = time.perf_counter()
-    mer_par = parallel_merge_sort(data, workers)
-    t7 = time.perf_counter()
-    print("Seconds:", round(t7 - t6, 6))
-
-    ok_bubble = bub_seq == bub_par == sorted(data)
-    ok_merge = mer_seq == mer_par == sorted(data)
-    print("\nBubble outputs agree with sorted reference:", ok_bubble)
-    print("Merge outputs agree with sorted reference:", ok_merge)
+    t0 = time.perf_counter()
+    _ = merge_sort_par(base[:], 4)
+    t1 = time.perf_counter()
+    print("Parallel Merge Sort Time:", round(t1 - t0, 6), "sec")
 
 
 if __name__ == "__main__":
