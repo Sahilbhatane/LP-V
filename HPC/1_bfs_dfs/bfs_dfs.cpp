@@ -110,7 +110,7 @@ public:
 int main() {
   int V, E;
 
-  cout << "Enter number of vertices: ";
+  cout << "Enter number of vertices (e.g. 6): ";
   cin >> V;
   if (V <= 0) {
     cerr << "Invalid vertex count.\n";
@@ -119,7 +119,7 @@ int main() {
 
   Graph g(V);
 
-  cout << "Enter number of edges: ";
+  cout << "Enter number of edges (e.g. 5): ";
   cin >> E;
   if (E < 0) {
     cerr << "Invalid edge count.\n";
@@ -138,7 +138,7 @@ int main() {
   }
 
   int start;
-  cout << "Enter starting vertex: ";
+  cout << "Enter starting vertex (e.g. 0): ";
   cin >> start;
   if (start < 0 || start >= V) {
     cerr << "Invalid start vertex.\n";

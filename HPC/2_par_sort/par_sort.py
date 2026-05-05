@@ -1,5 +1,5 @@
 """
-Parallel bubble + merge sort timings (stdlib only). Fixed SIZE (same idea as par_sort.cpp).
+Parallel bubble + merge sort timings (stdlib only). Reads size, workers, and seed from stdin.
 
 Run: python3 par_sort.py
 """
@@ -11,8 +11,6 @@ import random
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Tuple
-
-SIZE = 256  # Python threaded odd-even has high overhead; keep small (C++ uses 10000)
 
 
 def bubble_seq(arr: List[int]) -> None:
@@ -29,9 +27,10 @@ def swap_pair(args: Tuple[List[int], int, int]) -> None:
         a[i], a[j] = a[j], a[i]
 
 
-def bubble_par(arr: List[int]) -> None:
+def bubble_par(arr: List[int], pool_workers: int) -> None:
     n = len(arr)
-    with ThreadPoolExecutor(max_workers=8) as pool:
+    cap = max(1, min(pool_workers, 32))
+    with ThreadPoolExecutor(max_workers=cap) as pool:
         for _ in range(n):
             for phase in (0, 1):
                 pairs = [(arr, k, k + 1) for k in range(phase, n - 1, 2)]
@@ -80,8 +79,21 @@ def merge_sort_par(values: List[int], workers: int) -> List[int]:
 
 
 def main() -> None:
-    random.seed()
-    base = [random.randint(0, 99999) for _ in range(SIZE)]
+    size = int(input("How many random integers to sort? (e.g. 256): ").strip())
+    if size <= 0:
+        print("Size must be positive.")
+        return
+
+    workers = int(input("Workers for parallel bubble threads + merge pools (e.g. 4): ").strip())
+    workers = max(1, workers)
+
+    seed_text = input("Random seed, or blank for nondeterministic (e.g. 42): ").strip()
+    if seed_text:
+        random.seed(int(seed_text))
+    else:
+        random.seed()
+
+    base = [random.randint(0, 99999) for _ in range(size)]
 
     a = base[:]
     t0 = time.perf_counter()
@@ -91,7 +103,7 @@ def main() -> None:
 
     a = base[:]
     t0 = time.perf_counter()
-    bubble_par(a)
+    bubble_par(a, workers)
     t1 = time.perf_counter()
     print("Parallel Bubble Sort Time:", round(t1 - t0, 6), "sec")
 
@@ -101,7 +113,7 @@ def main() -> None:
     print("Sequential Merge Sort Time:", round(t1 - t0, 6), "sec")
 
     t0 = time.perf_counter()
-    _ = merge_sort_par(base[:], 4)
+    _ = merge_sort_par(base[:], workers)
     t1 = time.perf_counter()
     print("Parallel Merge Sort Time:", round(t1 - t0, 6), "sec")
 

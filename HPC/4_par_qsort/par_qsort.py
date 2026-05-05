@@ -1,5 +1,5 @@
 """
-Sequential quicksort vs one-level parallel partition + Pool workers (fixed N).
+Sequential quicksort vs one-level parallel partition + Pool workers. Reads options from stdin.
 
 Run: python3 par_qsort.py
 """
@@ -10,8 +10,6 @@ import multiprocessing as mp
 import random
 import time
 from typing import List
-
-N = 5000
 
 
 def quicksort_seq(values: List[int]) -> List[int]:
@@ -41,16 +39,29 @@ def quicksort_par_top(values: List[int], workers: int) -> List[int]:
 
 
 def main() -> None:
-    random.seed()
-    data = [random.randint(0, 99999) for _ in range(N)]
+    n = int(input("How many random integers? (e.g. 5000): ").strip())
+    if n <= 0:
+        print("Size must be positive.")
+        return
+
+    workers = int(input("Worker processes for parallel partition (1 or 2; e.g. 2): ").strip())
+    workers = max(1, min(workers, 2))
+
+    seed_text = input("Random seed, or blank for nondeterministic (e.g. 7): ").strip()
+    if seed_text:
+        random.seed(int(seed_text))
+    else:
+        random.seed()
+
+    data = [random.randint(0, 99999) for _ in range(n)]
 
     t0 = time.perf_counter()
     a = quicksort_seq(data)
     t1 = time.perf_counter()
-    print("Sequential quicksort time:", round(t1 - t0, 6), "sec")
+    print("\nSequential quicksort time:", round(t1 - t0, 6), "sec")
 
     t0 = time.perf_counter()
-    b = quicksort_par_top(list(data), 2)
+    b = quicksort_par_top(list(data), workers)
     t1 = time.perf_counter()
     print("Parallel quicksort time:", round(t1 - t0, 6), "sec")
 

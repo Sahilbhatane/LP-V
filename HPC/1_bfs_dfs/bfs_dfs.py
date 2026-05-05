@@ -47,14 +47,14 @@ def dfs(adj: List[List[int]], start: int) -> List[int]:
 
 
 def main() -> None:
-    v = int(input("Enter number of vertices: ").strip())
+    v = int(input("Enter number of vertices (e.g. 6): ").strip())
     if v <= 0:
         print("Invalid vertex count.")
         sys.exit(1)
 
     adj: List[List[int]] = [[] for _ in range(v)]
 
-    e = int(input("Enter number of edges: ").strip())
+    e = int(input("Enter number of edges (e.g. 5): ").strip())
     if e < 0:
         print("Invalid edge count.")
         sys.exit(1)
@@ -73,7 +73,7 @@ def main() -> None:
             adj[u].append(w)
             adj[w].append(u)
 
-    start = int(input("Enter starting vertex: ").strip())
+    start = int(input("Enter starting vertex (e.g. 0): ").strip())
     if not (0 <= start < v):
         print("Invalid start vertex.")
         sys.exit(1)

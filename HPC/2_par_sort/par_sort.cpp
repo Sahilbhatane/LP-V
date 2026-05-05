@@ -1,18 +1,16 @@
 /**
- * Bubble + merge sort, sequential vs parallel (OpenMP). Fixed array size (lab style).
+ * Bubble + merge sort, sequential vs parallel (OpenMP). Reads array size and options from stdin.
  *
  * Build: g++ -O2 -fopenmp -Wall -std=c++17 -o par_sort par_sort.cpp
  */
 
+#include <algorithm>
 #include <cstdlib>
-#include <ctime>
 #include <iostream>
 #include <omp.h>
 #include <vector>
 
 using namespace std;
-
-#define SIZE 10000
 
 void bubbleSortSeq(vector<int> &arr) {
   int n = static_cast<int>(arr.size());
@@ -93,9 +91,31 @@ void generateRandom(vector<int> &arr) {
 }
 
 int main() {
-  vector<int> arr(SIZE), temp;
+  int size;
+  cout << "How many random integers to sort? (e.g. 10000): ";
+  cin >> size;
+  if (size <= 0) {
+    cerr << "Size must be positive.\n";
+    return 1;
+  }
 
-  srand(static_cast<unsigned>(time(nullptr)));
+  int threads;
+  cout << "OpenMP threads for parallel sorts (e.g. 4): ";
+  cin >> threads;
+  threads = max(1, threads);
+  omp_set_num_threads(threads);
+
+  unsigned seed;
+  cout << "Random seed (e.g. 12345): ";
+  cin >> seed;
+  srand(seed);
+
+  int merge_depth;
+  cout << "Parallel merge recursion depth (e.g. 4; 0 = sequential merge halves): ";
+  cin >> merge_depth;
+  merge_depth = max(0, merge_depth);
+
+  vector<int> arr(static_cast<size_t>(size)), temp;
   generateRandom(arr);
 
   double start, end;
@@ -114,13 +134,13 @@ int main() {
 
   temp = arr;
   start = omp_get_wtime();
-  mergeSortSeq(temp, 0, SIZE - 1);
+  mergeSortSeq(temp, 0, size - 1);
   end = omp_get_wtime();
   cout << "Sequential Merge Sort Time: " << (end - start) << " sec\n";
 
   temp = arr;
   start = omp_get_wtime();
-  mergeSortParallel(temp, 0, SIZE - 1, 4);
+  mergeSortParallel(temp, 0, size - 1, merge_depth);
   end = omp_get_wtime();
   cout << "Parallel Merge Sort Time: " << (end - start) << " sec\n";
 

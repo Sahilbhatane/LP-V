@@ -1,5 +1,5 @@
 """
-Parallel reductions on a fixed array {1,2,3,4,5} (stdlib multiprocessing).
+Parallel reductions (min, max, sum, average). Reads count, numbers, and worker count from stdin.
 
 Run: python3 reduce.py
 """
@@ -31,16 +31,30 @@ def parallel_reduce(arr: list[int], workers: int) -> tuple[int, int, int]:
 
 
 def main() -> None:
-    arr = [1, 2, 3, 4, 5]
-    n = len(arr)
+    n = int(input("How many integers? (e.g. 5): ").strip())
+    if n <= 0:
+        print("Count must be positive.")
+        return
 
-    print("Sequential:")
+    line = input(
+        f"Enter {n} integers, space-separated (e.g. 1 2 3 4 5): "
+    ).strip().split()
+    if len(line) != n:
+        print(f"Expected {n} numbers, got {len(line)}.")
+        return
+    arr = [int(x) for x in line]
+
+    workers = int(input("Worker processes for parallel reduction (e.g. 2): ").strip())
+    workers = max(1, workers)
+
+    seq_sum = sum(arr)
+    print("\nSequential:")
     print("  minimum:", min(arr))
     print("  maximum:", max(arr))
-    print("  sum:", sum(arr))
-    print("  average:", sum(arr) / n)
+    print("  sum:", seq_sum)
+    print("  average:", seq_sum / n)
 
-    mn, mx, s = parallel_reduce(arr, 2)
+    mn, mx, s = parallel_reduce(arr, workers)
     print("Parallel (chunk merge):")
     print("  minimum:", mn)
     print("  maximum:", mx)
