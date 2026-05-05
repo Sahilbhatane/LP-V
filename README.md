@@ -70,17 +70,28 @@ You give: how many vertices, how many edges, each edge as `u v`, where to start,
 **Python** — triangle on vertices 0–1–2, start at `0`, `2` workers (7 lines):
 
 ```bash
-printf "3
+to run -> python3 bfs_dfs.py
+inputs ->
+3
 3
 0 1
 1 2
-2 0\n0\n2\n" | python3 bfs_dfs.py
+2 0
+0
+2
 ```
 
 **C++** — same graph and start, no workers line (6 lines):
 
 ```bash
-printf "3\n3\n0 1\n1 2\n2 0\n0\n" | ./bfs_dfs
+to run -> ./bfs_dfs
+inputs ->
+3
+3
+0 1
+1 2
+2 0
+0
 ```
 
 ---
@@ -92,13 +103,21 @@ You give: how many random floats to sort, how many threads (Python = workers; C+
 **Python** — sort `500` numbers, `2` workers, seed `42`:
 
 ```bash
-printf "500\n2\n42\n" | python3 par_sort.py
+to run -> python3 par_sort.py
+input ->
+500
+2
+42
 ```
 
 **C++** — same numbers (seed required):
 
 ```bash
-printf "500\n2\n42\n" | ./par_sort
+to run -> ./par_sort
+inout ->
+500
+2
+42
 ```
 
 ---
@@ -110,13 +129,21 @@ You give: how many random doubles, parallelism count, seed. The program prints s
 **Python** — `1000` samples, `2` workers, seed `99`:
 
 ```bash
-printf "1000\n2\n99\n" | python3 reduce.py
+to run - python3 reduce.py
+input ->
+1000
+2
+99
 ```
 
 **C++**:
 
 ```bash
-printf "1000\n2\n99\n" | ./reduce
+to run -> ./reduce
+inout -> 
+1000
+2
+99 
 ```
 
 ---
@@ -128,13 +155,23 @@ You give: how many floats; **cutoff** (small sub-arrays use sequential quicksort
 **Python** — `800` values, cutoff `400`, `2` workers, seed `7`:
 
 ```bash
-printf "800\n400\n2\n7\n" | python3 par_qsort.py
+to run -> python3 par_qsort.py
+input -> 
+800
+400
+2
+7
 ```
 
 **C++**:
 
 ```bash
-printf "800\n400\n2\n7\n" | ./par_qsort
+to run -> ./par_qsort
+input -> 
+800
+400
+2
+7
 ```
 
 ---
